@@ -10,9 +10,18 @@ Minimal data export are injected to project.
 
 We can use Firebase emulator suite to check it locally.
 
+Run Emulator
+
 ```
 cd demo
 firebase emulators:start --import=./firebase-export --export-on-exit
+```
+
+Run Application
+
+```
+cd demo
+npm run dev
 ```
 
 ## Data Structure

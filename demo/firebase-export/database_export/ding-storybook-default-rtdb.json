@@ -1,14 +1,1 @@
-{
-	"status": {
-		"1wlaPQAZMKOZ96INnfYkIZwuSxvQ": {
-			"lastChanged": 1691398985285,
-			"state": "offline"
-		},
-		"6R0MijpK6M4AIrwaaCY2": { "lastChanged": 1691410077437, "state": "online" },
-		"6jMsIXUrBHBj7o2cRlau": {
-			"lastChanged": 1691407956265,
-			"state": "offline"
-		},
-		"SGmFnBZB4xxMv9V4CVlW": { "lastChanged": 1691407608538, "state": "offline" }
-	}
-}
+{"status":{"1wlaPQAZMKOZ96INnfYkIZwuSxvQ":{"lastChanged":1691398985285,"state":"offline"},"6R0MijpK6M4AIrwaaCY2":{"lastChanged":1691417910450,"state":"online"},"6jMsIXUrBHBj7o2cRlau":{"lastChanged":1691417921450,"state":"online"},"SGmFnBZB4xxMv9V4CVlW":{"lastChanged":1691417898483,"state":"online"}}}
