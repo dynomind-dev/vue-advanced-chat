@@ -22,11 +22,18 @@ import {
 	where
 } from 'firebase/firestore'
 
+const BUILDINGS_PATH = 'buildings'
 const USERS_PATH = 'users'
-const ROOMS_PATH = 'chatRooms'
+const USER_PATH = buildingId => {
+	return `${BUILDINGS_PATH}/${buildingId}/${USERS_PATH}`
+}
+const ROOMS_PATH = 'rooms'
+const ROOM_PATH = buildingId => {
+	return `${BUILDINGS_PATH}/${buildingId}/${ROOMS_PATH}`
+}
 const MESSAGES_PATH = 'messages'
-const MESSAGE_PATH = roomId => {
-	return `${ROOMS_PATH}/${roomId}/${MESSAGES_PATH}`
+const MESSAGE_PATH = (buildingId, roomId) => {
+	return `${ROOM_PATH(buildingId)}/${roomId}/${MESSAGES_PATH}`
 }
 
 const TIMESTAMP_FIELD = 'timestamp'
@@ -67,28 +74,28 @@ const deleteDocument = (ref, docId) => {
 // USERS
 const usersRef = collection(firestoreDb, USERS_PATH)
 
-const userRef = userId => {
-	return doc(firestoreDb, USERS_PATH, userId)
+const userRef = (buildingId, userId) => {
+	return doc(firestoreDb, BUILDINGS_PATH, buildingId, USERS_PATH, userId)
 }
 
 export const getAllUsers = () => {
 	return getDocuments(query(usersRef))
 }
 
-export const getUser = userId => {
-	return getDocument(userRef(userId))
+export const getUser = (buildingId, userId) => {
+	return getDocument(userRef(buildingId, userId))
 }
 
 export const addUser = data => {
 	return addDocument(usersRef, data)
 }
 
-export const addIdentifiedUser = (userId, data) => {
-	return setDocument(USERS_PATH, userId, data)
+export const addIdentifiedUser = (buildingId, userId, data) => {
+	return setDocument(USER_PATH(buildingId), userId, data)
 }
 
-export const updateUser = (userId, data) => {
-	return updateDocument(userRef(userId), data)
+export const updateUser = (buildingId, userId, data) => {
+	return updateDocument(userRef(buildingId, userId), data)
 }
 
 export const deleteUser = userId => {
@@ -96,16 +103,23 @@ export const deleteUser = userId => {
 }
 
 // ROOMS
-const roomsRef = collection(firestoreDb, ROOMS_PATH)
-
-const roomRef = roomId => {
-	return doc(firestoreDb, ROOMS_PATH, roomId)
+const roomsRef = buildingId => {
+	return collection(firestoreDb, BUILDINGS_PATH, buildingId, ROOMS_PATH)
 }
 
-export const roomsQuery = (currentUserId, roomsPerPage, lastRoom) => {
+const roomRef = (buildingId, roomId) => {
+	return doc(firestoreDb, BUILDINGS_PATH, buildingId, ROOMS_PATH, roomId)
+}
+
+export const roomsQuery = (
+	buildingId,
+	currentUserId,
+	roomsPerPage,
+	lastRoom
+) => {
 	if (lastRoom) {
 		return query(
-			roomsRef,
+			roomsRef(buildingId),
 			where(USERS_PATH, 'array-contains', currentUserId),
 			orderBy(LAST_UPDATED_FIELD, 'desc'),
 			limit(roomsPerPage),
@@ -113,7 +127,7 @@ export const roomsQuery = (currentUserId, roomsPerPage, lastRoom) => {
 		)
 	} else {
 		return query(
-			roomsRef,
+			roomsRef(buildingId),
 			where(USERS_PATH, 'array-contains', currentUserId),
 			orderBy(LAST_UPDATED_FIELD, 'desc'),
 			limit(roomsPerPage)
@@ -121,65 +135,78 @@ export const roomsQuery = (currentUserId, roomsPerPage, lastRoom) => {
 	}
 }
 
-export const getAllRooms = () => {
-	return getDocuments(query(roomsRef))
+export const getAllRooms = buildingId => {
+	return getDocuments(query(roomsRef(buildingId)))
 }
 
 export const getRooms = query => {
 	return getDocuments(query)
 }
 
-export const addRoom = data => {
-	return addDocument(roomsRef, data)
+export const addRoom = (buildingId, data) => {
+	return addDocument(roomsRef(buildingId), data)
 }
 
-export const updateRoom = (roomId, data) => {
-	return updateDocument(roomRef(roomId), data)
+export const updateRoom = (buildingId, roomId, data) => {
+	return updateDocument(roomRef(buildingId, roomId), data)
 }
 
-export const deleteRoom = roomId => {
-	return deleteDocument(ROOMS_PATH, roomId)
+export const deleteRoom = (buildingId, roomId) => {
+	return deleteDocument(ROOM_PATH(buildingId), roomId)
 }
 
-export const getUserRooms = (currentUserId, userId) => {
+export const getUserRooms = (buildingId, currentUserId, userId) => {
 	return getDocuments(
-		query(roomsRef, where(USERS_PATH, '==', [currentUserId, userId]))
+		query(
+			roomsRef(buildingId),
+			where(USERS_PATH, '==', [currentUserId, userId])
+		)
 	)
 }
 
-export const addRoomUser = (roomId, userId) => {
-	return updateRoom(roomId, {
+export const addRoomUser = (buildingId, roomId, userId) => {
+	return updateRoom(buildingId, roomId, {
 		[ROOM_USERS_FIELD]: arrayUnion(userId)
 	})
 }
 
-export const removeRoomUser = (roomId, userId) => {
-	return updateRoom(roomId, {
+export const removeRoomUser = (buildingId, roomId, userId) => {
+	return updateRoom(buildingId, roomId, {
 		[ROOM_USERS_FIELD]: arrayRemove(userId)
 	})
 }
 
-export const updateRoomTypingUsers = (roomId, currentUserId, action) => {
+export const updateRoomTypingUsers = (
+	buildingId,
+	roomId,
+	currentUserId,
+	action
+) => {
 	const arrayUpdate =
 		action === 'add' ? arrayUnion(currentUserId) : arrayRemove(currentUserId)
 
-	return updateRoom(roomId, { [TYPING_USERS_FIELD]: arrayUpdate })
+	return updateRoom(buildingId, roomId, { [TYPING_USERS_FIELD]: arrayUpdate })
 }
 
 // MESSAGES
-const messagesRef = roomId => {
-	return collection(firestoreDb, MESSAGE_PATH(roomId))
+const messagesRef = (buildingId, roomId) => {
+	return collection(firestoreDb, MESSAGE_PATH(buildingId, roomId))
 }
 
-const messageRef = (roomId, messageId) => {
-	return doc(firestoreDb, MESSAGE_PATH(roomId), messageId)
+const messageRef = (buildingId, roomId, messageId) => {
+	return doc(firestoreDb, MESSAGE_PATH(buildingId, roomId), messageId)
 }
 
-export const getMessages = (roomId, messagesPerPage, lastLoadedMessage) => {
+export const getMessages = (
+	buildingId,
+	roomId,
+	messagesPerPage,
+	lastLoadedMessage
+) => {
 	if (lastLoadedMessage) {
 		return getDocuments(
 			query(
-				messagesRef(roomId),
+				messagesRef(buildingId, roomId),
 				orderBy(TIMESTAMP_FIELD, 'desc'),
 				limit(messagesPerPage),
 				startAfter(lastLoadedMessage)
@@ -188,30 +215,30 @@ export const getMessages = (roomId, messagesPerPage, lastLoadedMessage) => {
 	} else if (messagesPerPage) {
 		return getDocuments(
 			query(
-				messagesRef(roomId),
+				messagesRef(buildingId, roomId),
 				orderBy(TIMESTAMP_FIELD, 'desc'),
 				limit(messagesPerPage)
 			)
 		)
 	} else {
-		return getDocuments(messagesRef(roomId))
+		return getDocuments(messagesRef(buildingId, roomId))
 	}
 }
 
-export const getMessage = (roomId, messageId) => {
-	return getDocument(messageRef(roomId, messageId))
+export const getMessage = (buildingId, roomId, messageId) => {
+	return getDocument(messageRef(buildingId, roomId, messageId))
 }
 
-export const addMessage = (roomId, data) => {
-	return addDocument(messagesRef(roomId), data)
+export const addMessage = (buildingId, roomId, data) => {
+	return addDocument(messagesRef(buildingId, roomId), data)
 }
 
-export const updateMessage = (roomId, messageId, data) => {
-	return updateDocument(messageRef(roomId, messageId), data)
+export const updateMessage = (buildingId, roomId, messageId, data) => {
+	return updateDocument(messageRef(buildingId, roomId, messageId), data)
 }
 
-export const deleteMessage = (roomId, messageId) => {
-	return deleteDocument(MESSAGE_PATH(roomId), messageId)
+export const deleteMessage = (buildingId, roomId, messageId) => {
+	return deleteDocument(MESSAGE_PATH(buildingId, roomId), messageId)
 }
 
 export const listenRooms = (query, callback) => {
@@ -221,35 +248,37 @@ export const listenRooms = (query, callback) => {
 }
 
 export const paginatedMessagesQuery = (
+	buildingId,
 	roomId,
 	lastLoadedMessage,
 	previousLastLoadedMessage
 ) => {
 	if (lastLoadedMessage && previousLastLoadedMessage) {
 		return query(
-			messagesRef(roomId),
+			messagesRef(buildingId, roomId),
 			orderBy(TIMESTAMP_FIELD),
 			startAt(lastLoadedMessage),
 			endAt(previousLastLoadedMessage)
 		)
 	} else if (lastLoadedMessage) {
 		return query(
-			messagesRef(roomId),
+			messagesRef(buildingId, roomId),
 			orderBy(TIMESTAMP_FIELD),
 			startAt(lastLoadedMessage)
 		)
 	} else if (previousLastLoadedMessage) {
 		return query(
-			messagesRef(roomId),
+			messagesRef(buildingId, roomId),
 			orderBy(TIMESTAMP_FIELD),
 			endAt(previousLastLoadedMessage)
 		)
 	} else {
-		return query(messagesRef(roomId), orderBy(TIMESTAMP_FIELD))
+		return query(messagesRef(buildingId, roomId), orderBy(TIMESTAMP_FIELD))
 	}
 }
 
 export const listenMessages = (
+	buildingId,
 	roomId,
 	lastLoadedMessage,
 	previousLastLoadedMessage,
@@ -257,6 +286,7 @@ export const listenMessages = (
 ) => {
 	return firestoreListener(
 		paginatedMessagesQuery(
+			buildingId,
 			roomId,
 			lastLoadedMessage,
 			previousLastLoadedMessage
@@ -280,17 +310,25 @@ const formatQueryDataArray = queryDataArray => {
 	return formattedData
 }
 
-const lastMessageQuery = roomId => {
-	return query(messagesRef(roomId), orderBy(TIMESTAMP_FIELD, 'desc'), limit(1))
+const lastMessageQuery = (buildingId, roomId) => {
+	return query(
+		messagesRef(buildingId, roomId),
+		orderBy(TIMESTAMP_FIELD, 'desc'),
+		limit(1)
+	)
 }
 
-export const listenLastMessage = (roomId, callback) => {
-	return firestoreListener(query(lastMessageQuery(roomId)), messages => {
-		callback(formatQueryDataArray(messages))
-	})
+export const listenLastMessage = (buildingId, roomId, callback) => {
+	return firestoreListener(
+		query(lastMessageQuery(buildingId, roomId)),
+		messages => {
+			callback(formatQueryDataArray(messages))
+		}
+	)
 }
 
 export const updateMessageReactions = (
+	buildingId,
 	roomId,
 	messageId,
 	currentUserId,
@@ -300,7 +338,7 @@ export const updateMessageReactions = (
 	const arrayUpdate =
 		action === 'add' ? arrayUnion(currentUserId) : arrayRemove(currentUserId)
 
-	return updateMessage(roomId, messageId, {
+	return updateMessage(buildingId, roomId, messageId, {
 		[`${MESSAGE_REACTIONS_FIELD}.${reactionUnicode}`]: arrayUpdate
 	})
 }

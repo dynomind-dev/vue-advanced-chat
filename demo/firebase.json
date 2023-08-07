@@ -1,0 +1,27 @@
+{
+	"emulators": {
+		"auth": {
+			"port": 4100
+		},
+		"firestore": {
+			"port": 4101
+		},
+		"database": {
+			"port": 4102
+		},
+		"storage": {
+			"port": 4103
+		},
+		"ui": {
+			"enabled": true
+		},
+		"singleProjectMode": true
+	},
+	"firestore": {
+		"rules": "firestore.rules",
+		"indexes": "firestore.indexes.json"
+	},
+	"storage": {
+		"rules": "storage.rules"
+	}
+}

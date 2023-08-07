@@ -4,20 +4,16 @@
 			class="app-container"
 			:class="{ 'app-mobile': isDevice, 'app-mobile-dark': theme === 'dark' }"
 		>
-			<!-- <div>
-				<button @click="resetData">
-					Clear Data
-				</button>
-				<button :disabled="updatingData" @click="addData">
-					Add Data
-				</button>
-			</div> -->
+			<div>
+				<button @click="resetData">Clear Data</button>
+				<button :disabled="updatingData" @click="addData">Add Data</button>
+			</div>
 			<span
 				v-if="showOptions"
 				class="user-logged"
 				:class="{ 'user-logged-dark': theme === 'dark' }"
 			>
-				Logged as
+				Logged as ({{ currentUserId }})
 			</span>
 			<select v-if="showOptions" v-model="currentUserId">
 				<option v-for="user in users" :key="user._id" :value="user._id">
@@ -26,15 +22,11 @@
 			</select>
 
 			<div v-if="showOptions" class="button-theme">
-				<button class="button-light" @click="theme = 'light'">
-					Light
-				</button>
-				<button class="button-dark" @click="theme = 'dark'">
-					Dark
-				</button>
+				<button class="button-light" @click="theme = 'light'">Light</button>
+				<button class="button-dark" @click="theme = 'dark'">Dark</button>
 				<button class="button-github">
 					<a href="https://github.com/antoine92190/vue-advanced-chat">
-						<img src="@/assets/github.svg" />
+						<img src="@/assets/github.svg" alt="GitHub" />
 					</a>
 				</button>
 			</div>
@@ -47,9 +39,7 @@
 				@show-demo-options="showDemoOptions = $event"
 			/>
 
-			<!-- <div class="version-container">
-				v1.0.0
-			</div> -->
+			<div class="version-container">v1.0.0</div>
 		</div>
 	</div>
 </template>
@@ -57,6 +47,7 @@
 <script>
 import * as firestoreService from '@/database/firestore'
 import * as storageService from '@/database/storage'
+import { signIn } from '@/database'
 
 import ChatContainer from './ChatContainer'
 
@@ -68,7 +59,7 @@ export default {
 	data() {
 		return {
 			theme: 'light',
-			showChat: true,
+			showChat: false,
 			users: [
 				{
 					_id: '6R0MijpK6M4AIrwaaCY2',
@@ -78,7 +69,8 @@ export default {
 				{
 					_id: 'SGmFnBZB4xxMv9V4CVlW',
 					username: 'Leia',
-					avatar: 'https://avatarfiles.alphacoders.com/184/thumb-184913.jpg'
+					avatar:
+						'https://comic-cons.xyz/wp-content/uploads/Star-Wars-avatars-Movie-Princess-Leia-Carrie-Fisher.jpg'
 				},
 				{
 					_id: '6jMsIXUrBHBj7o2cRlau',
@@ -87,7 +79,8 @@ export default {
 						'https://vignette.wikia.nocookie.net/teamavatarone/images/4/45/Yoda.jpg/revision/latest?cb=20130224160049'
 				}
 			],
-			currentUserId: '6R0MijpK6M4AIrwaaCY2',
+			buildingId: 'b1',
+			currentUserId: '',
 			isDevice: false,
 			showDemoOptions: true,
 			updatingData: false
@@ -103,11 +96,17 @@ export default {
 	watch: {
 		currentUserId() {
 			this.showChat = false
+			const user = this.users.find(user => user._id === this.currentUserId)
+			if (user) signIn(user._id, user.username, 'b1')
 			setTimeout(() => (this.showChat = true), 150)
 		}
 	},
 
 	mounted() {
+		const user = this.users[0]
+		this.currentUserId = user._id
+		if (user) signIn(user._id, user.username, 'b1')
+
 		this.isDevice = window.innerWidth < 500
 		window.addEventListener('resize', ev => {
 			if (ev.isTrusted) this.isDevice = window.innerWidth < 500
@@ -147,27 +146,39 @@ export default {
 			this.updatingData = true
 
 			const user1 = this.users[0]
-			await firestoreService.addIdentifiedUser(user1._id, user1)
+			await firestoreService.addIdentifiedUser(
+				this.buildingId,
+				user1._id,
+				user1
+			)
 
 			const user2 = this.users[1]
-			await firestoreService.addIdentifiedUser(user2._id, user2)
+			await firestoreService.addIdentifiedUser(
+				this.buildingId,
+				user2._id,
+				user2
+			)
 
 			const user3 = this.users[2]
-			await firestoreService.addIdentifiedUser(user3._id, user3)
+			await firestoreService.addIdentifiedUser(
+				this.buildingId,
+				user3._id,
+				user3
+			)
 
-			await firestoreService.addRoom({
+			await firestoreService.addRoom(this.buildingId, {
 				users: [user1._id, user2._id],
 				lastUpdated: new Date()
 			})
-			await firestoreService.addRoom({
+			await firestoreService.addRoom(this.buildingId, {
 				users: [user1._id, user3._id],
 				lastUpdated: new Date()
 			})
-			await firestoreService.addRoom({
+			await firestoreService.addRoom(this.buildingId, {
 				users: [user2._id, user3._id],
 				lastUpdated: new Date()
 			})
-			await firestoreService.addRoom({
+			await firestoreService.addRoom(this.buildingId, {
 				users: [user1._id, user2._id, user3._id],
 				lastUpdated: new Date()
 			})

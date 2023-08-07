@@ -1,0 +1,83 @@
+rules_version = '2';
+service cloud.firestore {
+match /databases/{database}/documents {
+  
+  // // demo rules
+  // match /{document=**} {
+  //   allow read, write: if true;
+  // }
+
+  // user rules
+  match /buildings/{buildingId}/users/{userId} {
+    allow read : if canReadUser(buildingId);
+    allow create, update, delete : if false;
+  }
+
+  // room rules
+  match /buildings/{buildingId}/rooms/{roomId} {
+    allow read : if canReadRoom(buildingId);
+    allow create, update, delete : if false;
+  }
+
+  // message rules
+  match /buildings/{buildingId}/rooms/{roomId}/messages/{messageId} {
+    allow read : if canReadMessage(buildingId, roomId);
+    allow create : if canCreateMessage(buildingId, roomId);
+    allow update : if canUpdateMessage(buildingId, roomId);
+    allow delete : if false
+  }
+  
+  // generic functions
+  function canReadUser(buildingId) {
+    return isSameBuilding(buildingId);
+  }
+
+  function canReadRoom(buildingId) {
+    return isSameBuilding(buildingId) && request.auth.token.userId in resource.data.users;
+  }
+
+  function canReadMessage(buildingId, roomId) {
+    return isRoomMember(buildingId, roomId)
+  }
+
+  function canCreateMessage(buildingId, roomId) {
+    return isRoomMember(buildingId, roomId) && isUnlockedRoom(buildingId, roomId) && isValidNewMessage()
+  }
+
+  function canUpdateMessage(buildingId, roomId) {
+    return isRoomMember(buildingId, roomId) && isUnlockedRoom(buildingId, roomId) && (
+      (isMessageCreator() && isValidMessageUpdate()) || isValidMessageReacton()
+    );
+  }
+
+  function isSameBuilding(buildingId) {
+    return request.auth.token.buildingId == buildingId;
+  }
+
+  function isRoomMember(buildingId, roomId) {
+    let room = get(/databases/$(database)/documents/buildings/$(buildingId)/rooms/$(roomId)).data;
+    return ('users' in room) && request.auth.token.userId in room.users;
+  }
+
+  function isUnlockedRoom(buildingId, roomId) {
+    let room = get(/databases/$(database)/documents/buildings/$(buildingId)/rooms/$(roomId)).data;
+    return !(("isLocked" in room) && room.isLocked == true);
+  }
+
+  function isMessageCreator() {
+    return request.auth.token.userId == resource.data.sender_id;
+  }
+
+  function isValidNewMessage() {
+    return request.auth.token.userId == request.resource.data.sender_id;
+  }
+
+  function isValidMessageUpdate() {
+    return (request.resource.data.sender_id == resource.data.sender_id);
+  }
+
+  function isValidMessageReacton() {
+    return (request.resource.data.sender_id == resource.data.sender_id);
+  }
+ }
+}

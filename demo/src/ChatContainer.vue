@@ -10,10 +10,19 @@
 
 		<form v-if="inviteRoomId" @submit.prevent="addRoomUser">
 			<input v-model="invitedUsername" type="text" placeholder="Add username" />
-			<button type="submit" :disabled="disableForm || !invitedUsername">
+			<input v-model="invitedUserId" type="text" placeholder="Or add user id" />
+			<button
+				type="submit"
+				:disabled="disableForm || (!invitedUsername && !invitedUserId)"
+			>
 				Add User
 			</button>
-			<button class="button-cancel" @click="inviteRoomId = null">Cancel</button>
+			<button
+				class="button-cancel"
+				@click=";(inviteRoomId = null), (invitedUserId = null)"
+			>
+				Cancel
+			</button>
 		</form>
 
 		<form v-if="removeRoomId" @submit.prevent="deleteRoomUser">
@@ -97,6 +106,7 @@ export default {
 
 	data() {
 		return {
+			buildingId: 'b1',
 			roomsPerPage: 15,
 			rooms: [],
 			roomId: '',
@@ -121,6 +131,7 @@ export default {
 			addNewRoom: null,
 			addRoomUsername: '',
 			inviteRoomId: null,
+			invitedUserId: '',
 			invitedUsername: '',
 			removeRoomId: null,
 			removeUserId: '',
@@ -215,6 +226,7 @@ export default {
 			}
 
 			const query = firestoreService.roomsQuery(
+				this.buildingId,
 				this.currentUserId,
 				this.roomsPerPage,
 				this.startRooms
@@ -241,7 +253,7 @@ export default {
 			// this.incrementDbCounter('Fetch Room Users', roomUserIds.length)
 			const rawUsers = []
 			roomUserIds.forEach(userId => {
-				const promise = firestoreService.getUser(userId)
+				const promise = firestoreService.getUser(this.buildingId, userId)
 				rawUsers.push(promise)
 			})
 
@@ -304,6 +316,7 @@ export default {
 
 		listenLastMessage(room) {
 			const listener = firestoreService.listenLastMessage(
+				this.buildingId,
 				room.roomId,
 				messages => {
 					// this.incrementDbCounter('Listen Last Room Message', messages.length)
@@ -378,7 +391,12 @@ export default {
 			this.selectedRoom = room.roomId
 
 			firestoreService
-				.getMessages(room.roomId, this.messagesPerPage, this.lastLoadedMessage)
+				.getMessages(
+					this.buildingId,
+					room.roomId,
+					this.messagesPerPage,
+					this.lastLoadedMessage
+				)
 				.then(({ data, docs }) => {
 					// this.incrementDbCounter('Fetch Room Messages', messages.length)
 					if (this.selectedRoom !== room.roomId) return
@@ -407,6 +425,7 @@ export default {
 
 		listenMessages(room) {
 			const listener = firestoreService.listenMessages(
+				this.buildingId,
 				room.roomId,
 				this.lastLoadedMessage,
 				this.previousLastLoadedMessage,
@@ -436,9 +455,14 @@ export default {
 				message.sender_id !== this.currentUserId &&
 				(!message.seen || !message.seen[this.currentUserId])
 			) {
-				firestoreService.updateMessage(room.roomId, message.id, {
-					[`seen.${this.currentUserId}`]: new Date()
-				})
+				firestoreService.updateMessage(
+					this.buildingId,
+					room.roomId,
+					message.id,
+					{
+						[`seen.${this.currentUserId}`]: new Date()
+					}
+				)
 			}
 		},
 
@@ -494,7 +518,11 @@ export default {
 				}
 			}
 
-			const { id } = await firestoreService.addMessage(roomId, message)
+			const { id } = await firestoreService.addMessage(
+				this.buildingId,
+				roomId,
+				message
+			)
 
 			if (files) {
 				for (let index = 0; index < files.length; index++) {
@@ -502,7 +530,9 @@ export default {
 				}
 			}
 
-			firestoreService.updateRoom(roomId, { lastUpdated: new Date() })
+			firestoreService.updateRoom(this.buildingId, roomId, {
+				lastUpdated: new Date()
+			})
 		},
 
 		async editMessage({ messageId, newContent, roomId, files }) {
@@ -515,7 +545,12 @@ export default {
 				newMessage.files = firestoreService.deleteDbField
 			}
 
-			await firestoreService.updateMessage(roomId, messageId, newMessage)
+			await firestoreService.updateMessage(
+				this.buildingId,
+				roomId,
+				messageId,
+				newMessage
+			)
 
 			if (files) {
 				for (let index = 0; index < files.length; index++) {
@@ -527,9 +562,14 @@ export default {
 		},
 
 		async deleteMessage({ message, roomId }) {
-			await firestoreService.updateMessage(roomId, message._id, {
-				deleted: new Date()
-			})
+			await firestoreService.updateMessage(
+				this.buildingId,
+				roomId,
+				message._id,
+				{
+					deleted: new Date()
+				}
+			)
 
 			const { files } = message
 
@@ -559,7 +599,11 @@ export default {
 						resolve(false)
 					},
 					async url => {
-						const message = await firestoreService.getMessage(roomId, messageId)
+						const message = await firestoreService.getMessage(
+							this.buildingId,
+							roomId,
+							messageId
+						)
 
 						message.files.forEach(f => {
 							if (f.url === file.localUrl) {
@@ -567,9 +611,14 @@ export default {
 							}
 						})
 
-						await firestoreService.updateMessage(roomId, messageId, {
-							files: message.files
-						})
+						await firestoreService.updateMessage(
+							this.buildingId,
+							roomId,
+							messageId,
+							{
+								files: message.files
+							}
+						)
 						resolve(true)
 					}
 				)
@@ -634,6 +683,7 @@ export default {
 			}
 
 			const query1 = await firestoreService.getUserRooms(
+				this.buildingId,
 				this.currentUserId,
 				user._id
 			)
@@ -643,6 +693,7 @@ export default {
 			}
 
 			const query2 = await firestoreService.getUserRooms(
+				this.buildingId,
 				user._id,
 				this.currentUserId
 			)
@@ -656,7 +707,7 @@ export default {
 					? [this.currentUserId]
 					: [user._id, this.currentUserId]
 
-			const room = await firestoreService.addRoom({
+			const room = await firestoreService.addRoom(this.buildingId, {
 				users: users,
 				lastUpdated: new Date()
 			})
@@ -668,7 +719,9 @@ export default {
 		async loadRoom(query) {
 			query.forEach(async room => {
 				if (this.loadingRooms) return
-				await firestoreService.updateRoom(room.id, { lastUpdated: new Date() })
+				await firestoreService.updateRoom(this.buildingId, room.id, {
+					lastUpdated: new Date()
+				})
 				this.roomId = room.id
 				this.fetchRooms()
 			})
@@ -696,6 +749,7 @@ export default {
 
 		async sendMessageReaction({ reaction, remove, messageId, roomId }) {
 			firestoreService.updateMessageReactions(
+				this.buildingId,
 				roomId,
 				messageId,
 				this.currentUserId,
@@ -719,6 +773,7 @@ export default {
 				this.typingMessageCache = message
 
 				firestoreService.updateRoomTypingUsers(
+					this.buildingId,
 					roomId,
 					this.currentUserId,
 					message ? 'add' : 'remove'
@@ -776,12 +831,12 @@ export default {
 		async createRoom() {
 			this.disableForm = true
 
-			const { id } = await firestoreService.addUser({
+			const { id } = await firestoreService.addUser(this.buildingId, {
 				username: this.addRoomUsername
 			})
-			await firestoreService.updateUser(id, { _id: id })
+			await firestoreService.updateUser(this.buildingId, id, { _id: id })
 
-			await firestoreService.addRoom({
+			await firestoreService.addRoom(this.buildingId, {
 				users: [id, this.currentUserId],
 				lastUpdated: new Date()
 			})
@@ -799,15 +854,28 @@ export default {
 		async addRoomUser() {
 			this.disableForm = true
 
-			const { id } = await firestoreService.addUser({
-				username: this.invitedUsername
-			})
-			await firestoreService.updateUser(id, { _id: id })
+			if (this.invitedUserId) {
+				await firestoreService.addRoomUser(
+					this.buildingId,
+					this.inviteRoomId,
+					this.invitedUserId
+				)
+			} else {
+				const { id } = await firestoreService.addUser(this.buildingId, {
+					username: this.invitedUsername
+				})
+				await firestoreService.updateUser(this.buildingId, id, { _id: id })
 
-			await firestoreService.addRoomUser(this.inviteRoomId, id)
+				await firestoreService.addRoomUser(
+					this.buildingId,
+					this.inviteRoomId,
+					id
+				)
+			}
 
 			this.inviteRoomId = null
 			this.invitedUsername = ''
+			this.invitedUserId = ''
 			this.fetchRooms()
 		},
 
@@ -821,6 +889,7 @@ export default {
 			this.disableForm = true
 
 			await firestoreService.removeRoomUser(
+				this.buildingId,
 				this.removeRoomId,
 				this.removeUserId
 			)
@@ -839,9 +908,9 @@ export default {
 				return alert('Nope, for demo purposes you cannot delete this room')
 			}
 
-			firestoreService.getMessages(roomId).then(({ data }) => {
+			firestoreService.getMessages(this.buildingId, roomId).then(({ data }) => {
 				data.forEach(message => {
-					firestoreService.deleteMessage(roomId, message.id)
+					firestoreService.deleteMessage(this.buildingId, roomId, message.id)
 					if (message.files) {
 						message.files.forEach(file => {
 							storageService.deleteFile(this.currentUserId, message.id, file)
@@ -850,7 +919,7 @@ export default {
 				})
 			})
 
-			await firestoreService.deleteRoom(roomId)
+			await firestoreService.deleteRoom(this.buildingId, roomId)
 
 			this.fetchRooms()
 		},
